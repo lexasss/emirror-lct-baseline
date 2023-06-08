@@ -3,17 +3,19 @@ import { onMounted, ref, computed } from 'vue'
 
 import Likert from './components/Likert.vue'
 
-import { DB, makeImageName } from './db'
+import { DB, Record } from './db'
 
 import type { Ref } from 'vue'
 import type { IRecord } from './db';
 
-const DELIM = '\t';
+interface IEvaluation {
+    id: number;
+    records: IRecord[];
+}
 
-const results: Array<string> = [];
+const results: IRecord[] = [];
 
 const index = ref( -1 );
-const image = ref( '' );
 const record: Ref<IRecord | null> = ref( null );
 const debugMessages: Ref<string[]> = ref( [] );
 
@@ -30,7 +32,8 @@ function onStart() {
 function onQuestionnaireAnswer(e: number) {
     if (record.value) {
         const r = record.value;
-        results.push(`${r.mirror}${DELIM}${r.lane}${DELIM}${r.distance}${DELIM}${r.id}${DELIM}${e}`)
+        Object.assign(r, { amswer: e });
+        results.push(r);
     }
 
     if (++index.value < DB.length) {
@@ -44,13 +47,18 @@ function onQuestionnaireAnswer(e: number) {
 
 function imageURL() {
     if (record.value) {
-        const name = makeImageName(record.value)
+        const name = Record.makeImageName(record.value)
         return `./images/${name}.jpg`;
     }
 }
 
 function saveResults() {
-    var file = new Blob([results.join('\r\n')], {type: 'text/plain'});
+    saveToFile([results.join('\r\n')]);
+    saveToLocalStorage(results);
+}
+
+function saveToFile(data: string[]) {
+    var file = new Blob(data, {type: 'text/plain'});
 
     const link = document.createElement('a');
     link.style.display = 'none';
@@ -64,6 +72,22 @@ function saveResults() {
         URL.revokeObjectURL(link.href);
         link.parentNode?.removeChild(link);
     }, 0);
+}
+
+function saveToLocalStorage(records: IRecord[]) {
+    const LS_NAME = 'emirror-lct-eval';
+
+    let savedDataString = localStorage.getItem(LS_NAME);
+    const savedData: IEvaluation[] = savedDataString ? JSON.parse(savedDataString) : [];
+    console.dir(savedDataString);
+    
+    savedData.push({
+        id: savedData.length,
+        records,
+    });
+
+    savedDataString = JSON.stringify(savedData);
+    localStorage.setItem(LS_NAME, savedDataString);
 }
 
 onMounted(() => {
