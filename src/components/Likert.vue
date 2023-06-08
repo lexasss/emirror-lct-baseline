@@ -49,6 +49,7 @@ div
 .options {
     display: flex;
     flex-direction: row;
+    padding: 0;
 }
 
 .option {
@@ -76,13 +77,8 @@ button {
     }
 }
 @media screen and (min-width: 1024px) {
-    .options {
-        align-items: stretch;
-        bottom: 0;
-    }
     .option {
         width: 25%;
-        min-height: 12rem;
     }
     .option > button {
         min-height: 15rem;

@@ -9,9 +9,12 @@ import type { Ref } from 'vue'
 import type { IRecord } from './db';
 
 interface IEvaluation {
-    id: number;
+    id: string;
     records: IRecord[];
 }
+
+const LS_NAME = 'emirror-lct-eval';
+
 
 const results: IRecord[] = [];
 
@@ -60,10 +63,13 @@ function saveResults() {
 function saveToFile(data: string[]) {
     var file = new Blob(data, {type: 'text/plain'});
 
+    let savedDataString = localStorage.getItem(LS_NAME);
+    const savedData: IEvaluation[] = savedDataString ? JSON.parse(savedDataString) : [];
+
     const link = document.createElement('a');
     link.style.display = 'none';
     link.href = URL.createObjectURL(file);
-    link.download = "user-id";
+    link.download = 'p' + savedData.length;
 
     document.body.appendChild(link);
     link.click();
@@ -75,14 +81,12 @@ function saveToFile(data: string[]) {
 }
 
 function saveToLocalStorage(records: IRecord[]) {
-    const LS_NAME = 'emirror-lct-eval';
-
     let savedDataString = localStorage.getItem(LS_NAME);
     const savedData: IEvaluation[] = savedDataString ? JSON.parse(savedDataString) : [];
     console.dir(savedDataString);
     
     savedData.push({
-        id: savedData.length,
+        id: 'p' + savedData.length,
         records,
     });
 
@@ -105,8 +109,9 @@ main
     button.start.is-centered(v-show="hasStart"
         @click="onStart") Start
 
-    .target-container(v-if="hasImage")
-        img.target(:src="imageURL()")
+    .evaluation-container(v-if="hasImage")
+        .target-container
+            img.target(:src="imageURL()")
 
         Likert(:count="5"
             title="How safe it is to change the lane?"
@@ -141,14 +146,20 @@ main
     font-family: inherit;
 }
 
-.target-container {
+.evaluation-container {
     display: flex;
     flex-direction: column;
     margin: 0.5rem;
 }
 
+.target-container {
+    display: flex;
+    height: 360px;
+}
+
 .target {
     margin: auto;
+    min-height: 260px;
 }
 
 .done {
