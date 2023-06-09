@@ -44,7 +44,7 @@ function onStart() {
 function onQuestionnaireAnswer(e: number) {
     if (record.value) {
         const r = record.value;
-        Object.assign(r, { amswer: e });
+        Object.assign(r, { answer: e });
         results.push(r);
     }
 
@@ -87,7 +87,7 @@ function targetURL() {
 }
 
 function saveResults() {
-    saveToFile([results.join('\r\n')]);
+    saveToFile([results.map(r => Record.toString(r)).join('\r\n')]);
     saveToLocalStorage(results);
 }
 
@@ -100,7 +100,7 @@ function saveToFile(data: string[]) {
     const link = document.createElement('a');
     link.style.display = 'none';
     link.href = URL.createObjectURL(file);
-    link.download = 'p' + savedData.length;
+    link.download = 'p' + savedData.length + '.txt';
 
     document.body.appendChild(link);
     link.click();
