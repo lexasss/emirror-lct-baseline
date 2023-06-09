@@ -4,12 +4,15 @@ import { onMounted, ref, computed } from 'vue'
 import Likert from './components/Likert.vue'
 
 import { DB, Record } from './db'
+import { targets } from './targets'
 
 import type { Ref } from 'vue'
 import type { IRecord } from './db';
+import type { ITarget } from './targets';
 
 interface IEvaluation {
     id: string;
+    ts: string;
     records: IRecord[];
 }
 
@@ -18,18 +21,24 @@ const LS_NAME = 'emirror-lct-eval';
 
 const results: IRecord[] = [];
 
-const index = ref( -1 );
+const completed = ref( false );
+const recordIndex = ref( -1 );
 const record: Ref<IRecord | null> = ref( null );
+const targetIndex = ref( -1 );
 const debugMessages: Ref<string[]> = ref( [] );
 
 const hasDebugMessages = computed( () => !!debugMessages.value.length );
-const hasStart = computed( () => index.value < 0 );
+const hasIntro = computed( () => recordIndex.value < 0 && !completed.value);
 const hasImage = computed( () => !!record.value );
-const hasDone = computed( () => index.value == DB.length );
+const hasNext = computed( () => recordIndex.value == DB.length && targetIndex.value < 0);
+const hasTarget = computed( () => targetIndex.value >= 0 );
+
+const targetTitle = computed( () => targetIndex.value >= 0 ? targets[targetIndex.value].title : '' );
 
 function onStart() {
-    index.value = 0;
-    record.value = DB[index.value];
+    results.length = 0;
+    recordIndex.value = 0;
+    record.value = DB[recordIndex.value];
 }
 
 function onQuestionnaireAnswer(e: number) {
@@ -39,8 +48,8 @@ function onQuestionnaireAnswer(e: number) {
         results.push(r);
     }
 
-    if (++index.value < DB.length) {
-        record.value = DB[index.value];
+    if (++recordIndex.value < DB.length) {
+        record.value = DB[recordIndex.value];
     }
     else {
         record.value = null;
@@ -48,10 +57,32 @@ function onQuestionnaireAnswer(e: number) {
     }
 }
 
+function onShowTargets() {
+    targetIndex.value = 0;
+}
+
+function onNextTarget() {
+    if (targetIndex.value < targets.length - 1) {
+        targetIndex.value += 1;
+    }
+    else {
+        completed.value = true;
+        targetIndex.value = -1;
+        recordIndex.value = -1;
+    }
+}
+
 function imageURL() {
     if (record.value) {
         const name = Record.makeImageName(record.value)
         return `./images/${name}.jpg`;
+    }
+}
+
+function targetURL() {
+    if (targetIndex.value >= 0) {
+        const name = targets[targetIndex.value].name;
+        return `./targets/${name}.webp`;
     }
 }
 
@@ -87,17 +118,19 @@ function saveToLocalStorage(records: IRecord[]) {
     
     savedData.push({
         id: 'p' + savedData.length,
+        ts: new Date().toString(),
         records,
     });
 
     savedDataString = JSON.stringify(savedData);
-    localStorage.setItem(LS_NAME, savedDataString);
+    localStorage.setItem(LS_NAME, savedDataString);eval
 }
 
 onMounted(() => {
     window.addEventListener( 'error' , (e) => { debugMessages.value.push( `ERROR: ${e.message}` )})
     window.addEventListener( 'keydown', (e) => {
         if (e.key == 'q') {
+            recordIndex.value = DB.length - 1;
         }
     });
 });
@@ -106,18 +139,29 @@ onMounted(() => {
 
 <template lang="pug">
 main
-    button.start.is-centered(v-show="hasStart"
-        @click="onStart") Start
+    .instr-container(v-if="hasIntro")
+        .instruction.is-centered() Let's evaluate the lane-change safety
+        button.go.is-centered(@click="onStart") Start
 
     .evaluation-container(v-if="hasImage")
-        .target-container
-            img.target(:src="imageURL()")
-
-        Likert(:count="5"
+        .record-container
+            img.record(:src="imageURL()")
+        Likert.likert(
+            :count="5"
             title="How safe it is to change the lane?"
             @value="onQuestionnaireAnswer")
 
-    .done.is-centered(v-show="hasDone") Finished. Thank you!
+    .instr-container(v-if="hasNext")
+        .instruction.is-centered() Now, lets study the targets!
+        button.go.is-centered(@click="onShowTargets") Start
+
+    .instr-container(v-if="hasTarget")
+        .instruction.is-centered() {{ targetTitle }}
+        img.target(:src="targetURL()")
+        button.go.is-centered(@click="onNextTarget") Next
+
+    .instr-container(v-if="completed")
+        .instruction.is-centered Done. Thank you!
 
     h3.debug(v-show="hasDebugMessages")
         div(v-for="err in debugMessages") {{ err }}
@@ -127,45 +171,54 @@ main
 @import './assets/base.css';
 #app {
     margin: 0 1em;
-    padding: 0 2rem;
+    padding: 0 2em;
     overflow: hidden;
     font-weight: normal;
 }
 
+.likert {
+    width: inherit;
+}
+
 .is-centered {
-    position: fixed;
-    left: 25vw;
-    top: 25vh;
     width: 50vw;
-    height: 50vh;
 }
 
-.start {
-    font-size: 3.75rem;
-    border-radius: 1rem;
+.instruction {
+    font-size: 6vh;
+    text-align: center;
+    margin: 1em 0;
+}
+
+.go {
+    font-size: 6vh;
+    border-radius: 0.25em;
     font-family: inherit;
+    padding: 2em 0;
+    margin: 1em 0;
 }
 
-.evaluation-container {
+.instr-container {
     display: flex;
     flex-direction: column;
     margin: 0.5rem;
+    align-items: center;
 }
 
-.target-container {
+.record-container {
     display: flex;
     height: 360px;
 }
 
-.target {
+.record {
     margin: auto;
     min-height: 260px;
 }
 
-.done {
-    font-size: 3.75rem;
-    line-height: 50vh;
-    text-align: center;
+.target {
+    border-radius: 1rem;
+    height: 40vh;
+    margin: auto;
 }
 
 .debug {
